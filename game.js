@@ -16,7 +16,7 @@ let longSwordActive = false, swordTimer = 0, shieldActive = false;
 
 // Système de Shake Caméra
 let shakeIntensity = 0;
-let shakeDecay = 0.9; // Vitesse à laquelle le tremblement s'arrête
+let shakeDecay = 0.9;
 
 // Système Allié
 let companion = null, companionProjectiles = [], lastCompanionShot = 0;
@@ -48,18 +48,25 @@ function init() {
 function createPlayer() {
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x444444 }));
     body.position.y = 1; player.add(body);
-    swordGroup = new THREE.Group(); swordGroup.position.set(0.5, 1.2, 0);
-    swordMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 2.5), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 }));
+    
+    // Pivot de l'épée
+    swordGroup = new THREE.Group(); 
+    swordGroup.position.set(0.6, 1.1, -0.2); 
+    
+    // Lame
+    swordMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.08, 2.5), 
+        new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 })
+    );
     swordMesh.position.z = -1.25;
-    swordGroup.add(swordMesh); player.add(swordGroup);
+    swordGroup.add(swordMesh); 
+    player.add(swordGroup);
 }
 
 /* ===== SYSTEME DE NIVEAU ET CHOIX ===== */
 function gainXP(amount) {
     playerXP += amount;
-    if (playerXP >= xpToNextLevel) {
-        levelUp();
-    }
+    if (playerXP >= xpToNextLevel) levelUp();
     updateUI();
 }
 
@@ -68,26 +75,83 @@ function levelUp() {
     playerXP = 0;
     xpToNextLevel = Math.floor(xpToNextLevel * 1.6);
     playerHP = Math.min(100, playerHP + 30);
-    
     isPaused = true;
     document.exitPointerLock();
     document.getElementById("levelUpMenu").style.display = "flex";
 }
 
 function chooseUpgrade(type) {
-    if (type === 'speed') {
-        baseSpeed += 0.06;
-    } else if (type === 'jump') {
-        maxJumps += 1;
-    }
-    
+    if (type === 'speed') baseSpeed += 0.06;
+    else if (type === 'jump') maxJumps += 1;
     document.getElementById("levelUpMenu").style.display = "none";
     isPaused = false;
     renderer.domElement.requestPointerLock();
     createParticles(player.position, 0x00ffff);
 }
 
-/* ===== COMBAT & ENNEMIS ===== */
+/* ===== COMBAT & ANIMATIONS (MODIFIÉ) ===== */
+function updateCombat(delta) {
+    if (!isAttacking || isPaused) {
+        // Position de repos fluide
+        swordGroup.rotation.x = THREE.MathUtils.lerp(swordGroup.rotation.x, 0, 0.1);
+        swordGroup.rotation.y = THREE.MathUtils.lerp(swordGroup.rotation.y, -0.2, 0.1);
+        swordGroup.rotation.z = THREE.MathUtils.lerp(swordGroup.rotation.z, 0, 0.1);
+        swordMesh.scale.set(1, 1, 1);
+        return;
+    }
+
+    attackTime += delta * 3.5; // Vitesse de l'animation
+
+    // Courbe d'animation : Phase de préparation (wind-up) puis impact rapide
+    // Utilisation de Math.sin pour une fluidité organique
+    let progress = Math.min(attackTime, 1);
+    let swing = Math.sin(progress * Math.PI); 
+
+    if (attackType === 'horizontal') {
+        // Rotation horizontale avec un léger arc de cercle (tilt)
+        swordGroup.rotation.y = 1.5 - (progress * 4); 
+        swordGroup.rotation.z = swing * 0.5;
+        
+        // Effet de coupure visuelle (étirement de la lame pendant l'impact)
+        if (progress > 0.3 && progress < 0.7) {
+            swordMesh.scale.x = 0.2; // La lame s'affine
+            swordMesh.scale.z = 1.4; // La lame s'allonge pour l'effet de sillage
+        } else {
+            swordMesh.scale.set(1, 1, 1);
+        }
+    } else {
+        // Attaque verticale (écrasement)
+        swordGroup.rotation.x = -1.2 + (progress * 3.5);
+        swordGroup.rotation.y = -0.2;
+        
+        if (progress > 0.3 && progress < 0.7) {
+            swordMesh.scale.y = 0.2;
+            swordMesh.scale.z = 1.4;
+        } else {
+            swordMesh.scale.set(1, 1, 1);
+        }
+    }
+
+    // Détection des collisions au moment du pic de vitesse (progress 0.5)
+    if (progress > 0.4 && progress < 0.6) {
+        const playerReach = longSwordActive ? 10 : 6;
+        enemies.forEach(en => {
+            const distXZ = Math.sqrt(Math.pow(player.position.x - en.position.x, 2) + Math.pow(player.position.z - en.position.z, 2));
+            if (distXZ < (playerReach + en.userData.hitboxRadius) && !en.userData.hit) {
+                damageEnemy(en); 
+                en.userData.hit = true;
+                shakeIntensity = Math.min(shakeIntensity + 0.5, 1.2); // Petit shake à l'impact
+            }
+        });
+    }
+
+    if (attackTime >= 1) {
+        isAttacking = false;
+        attackTime = 0;
+    }
+}
+
+/* ===== ENNEMIS ===== */
 function createEnemy(type) {
     const en = new THREE.Group();
     let hp, speed, yPos;
@@ -130,24 +194,6 @@ function damageEnemy(en) {
     }
 }
 
-function updateCombat(delta) {
-    if (!isAttacking || isPaused) return;
-    attackTime += delta * 8;
-    if (attackType === 'horizontal') swordGroup.rotation.y = 1.8 - (attackTime * 3.6);
-    else swordGroup.rotation.x = -1.5 + (attackTime * 3);
-
-    if (attackTime > 0.3 && attackTime < 0.8) {
-        const playerReach = longSwordActive ? 10 : 6;
-        enemies.forEach(en => {
-            const distXZ = Math.sqrt(Math.pow(player.position.x - en.position.x, 2) + Math.pow(player.position.z - en.position.z, 2));
-            if (distXZ < (playerReach + en.userData.hitboxRadius) && !en.userData.hit) {
-                damageEnemy(en); en.userData.hit = true;
-            }
-        });
-    }
-    if (attackTime >= 1) { isAttacking = false; swordGroup.rotation.set(0, -0.2, 0); }
-}
-
 /* ===== BOUCLE & MOUVEMENTS ===== */
 function updatePlayer(delta) {
     if (isPaused) return;
@@ -173,8 +219,6 @@ function gameLoop(time) {
         updatePlayer(delta); updateCombat(delta); updateEnemies(); updateBonuses(delta); 
         updateParticles(delta); updateCompanion(delta); updateProjectiles(delta);
         if (Math.random() < 0.003) spawnBonus(null, null);
-        
-        // Diminution progressive du shake
         if (shakeIntensity > 0) shakeIntensity *= shakeDecay;
     }
     updateCamera();
@@ -257,12 +301,10 @@ function updateUI() {
 
 function updateCamera() {
     const dist = 10;
-    // Calcul de la position de base
     let targetPosX = player.position.x + Math.sin(yaw) * dist;
     let targetPosY = player.position.y + 5 + pitch * 3;
     let targetPosZ = player.position.z + Math.cos(yaw) * dist;
 
-    // Ajout du tremblement (shake)
     if (shakeIntensity > 0.01) {
         targetPosX += (Math.random() - 0.5) * shakeIntensity;
         targetPosY += (Math.random() - 0.5) * shakeIntensity;
@@ -312,15 +354,10 @@ function updateEnemies() {
         en.lookAt(player.position.x, en.position.y, player.position.z);
         en.userData.healthBarInfo.sprite.lookAt(camera.position);
         if(en.userData.type === 'boss') en.children.forEach((c, i) => { if(i >= 2) c.rotation.x = Math.sin(Date.now()*0.005+i)*0.5; });
-        
-        // Collision et Dégâts au joueur
         if (player.position.distanceTo(en.position) < (en.userData.type === 'boss' ? 5 : 2)) {
             let damage = (en.userData.type === 'boss' ? 0.6 : 0.2);
             playerHP -= damage;
-            
-            // Déclenchement du shake lors du choc
             shakeIntensity = Math.min(shakeIntensity + damage * 2, 1.5); 
-            
             updateUI();
             if (playerHP <= 0) gameOver();
         }
