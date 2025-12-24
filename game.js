@@ -14,6 +14,10 @@ let jumpsRemaining = 2;
 let isAttacking = false, attackTime = 0, attackType = 'none';
 let longSwordActive = false, swordTimer = 0, shieldActive = false;
 
+// Système de Shake Caméra
+let shakeIntensity = 0;
+let shakeDecay = 0.9; // Vitesse à laquelle le tremblement s'arrête
+
 // Système Allié
 let companion = null, companionProjectiles = [], lastCompanionShot = 0;
 
@@ -65,7 +69,6 @@ function levelUp() {
     xpToNextLevel = Math.floor(xpToNextLevel * 1.6);
     playerHP = Math.min(100, playerHP + 30);
     
-    // Pause le jeu et montre le menu
     isPaused = true;
     document.exitPointerLock();
     document.getElementById("levelUpMenu").style.display = "flex";
@@ -78,7 +81,6 @@ function chooseUpgrade(type) {
         maxJumps += 1;
     }
     
-    // Reprise du jeu
     document.getElementById("levelUpMenu").style.display = "none";
     isPaused = false;
     renderer.domElement.requestPointerLock();
@@ -171,6 +173,9 @@ function gameLoop(time) {
         updatePlayer(delta); updateCombat(delta); updateEnemies(); updateBonuses(delta); 
         updateParticles(delta); updateCompanion(delta); updateProjectiles(delta);
         if (Math.random() < 0.003) spawnBonus(null, null);
+        
+        // Diminution progressive du shake
+        if (shakeIntensity > 0) shakeIntensity *= shakeDecay;
     }
     updateCamera();
     renderer.render(scene, camera);
@@ -252,7 +257,19 @@ function updateUI() {
 
 function updateCamera() {
     const dist = 10;
-    camera.position.set(player.position.x + Math.sin(yaw)*dist, player.position.y + 5 + pitch*3, player.position.z + Math.cos(yaw)*dist);
+    // Calcul de la position de base
+    let targetPosX = player.position.x + Math.sin(yaw) * dist;
+    let targetPosY = player.position.y + 5 + pitch * 3;
+    let targetPosZ = player.position.z + Math.cos(yaw) * dist;
+
+    // Ajout du tremblement (shake)
+    if (shakeIntensity > 0.01) {
+        targetPosX += (Math.random() - 0.5) * shakeIntensity;
+        targetPosY += (Math.random() - 0.5) * shakeIntensity;
+        targetPosZ += (Math.random() - 0.5) * shakeIntensity;
+    }
+
+    camera.position.set(targetPosX, targetPosY, targetPosZ);
     camera.lookAt(player.position.x, player.position.y + 1.5, player.position.z);
 }
 
@@ -295,8 +312,16 @@ function updateEnemies() {
         en.lookAt(player.position.x, en.position.y, player.position.z);
         en.userData.healthBarInfo.sprite.lookAt(camera.position);
         if(en.userData.type === 'boss') en.children.forEach((c, i) => { if(i >= 2) c.rotation.x = Math.sin(Date.now()*0.005+i)*0.5; });
+        
+        // Collision et Dégâts au joueur
         if (player.position.distanceTo(en.position) < (en.userData.type === 'boss' ? 5 : 2)) {
-            playerHP -= (en.userData.type === 'boss' ? 0.6 : 0.2);
+            let damage = (en.userData.type === 'boss' ? 0.6 : 0.2);
+            playerHP -= damage;
+            
+            // Déclenchement du shake lors du choc
+            shakeIntensity = Math.min(shakeIntensity + damage * 2, 1.5); 
+            
+            updateUI();
             if (playerHP <= 0) gameOver();
         }
     });
