@@ -2,6 +2,8 @@
 
 **HELLO SLAYER 64** est un jeu d'action-survie en 3D au style rétro-brutal, développé avec **Three.js**. Affrontez des vagues infinies d'ennemis, gérez votre montée en puissance et survivez dans une arène obscure baignée de néons rouges.
 
+![Logo Slayer 64](assets/images/logo.png)
+
 ---
 
 ## 🎮 Commandes
