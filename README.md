@@ -4,6 +4,10 @@
 
 <p align="center">
   <img src="assets/images/logo.png" alt="Logo Slayer 64" width="400">
+  <p align="center">
+  <video src="assets/images/generated/grok-video-ec44c7fe-811d-49ef-a3af-311bd5069809.mp4" width="100%" autoplay loop muted inline>
+  </video>
+</p>
 </p>
 
 ---
