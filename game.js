@@ -31,7 +31,7 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const light = new THREE.DirectionalLight(0xff00ff, 1.2);
     light.position.set(10, 20, 10);
     scene.add(light);
@@ -46,18 +46,38 @@ function init() {
 }
 
 function createPlayer() {
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x444444 }));
-    body.position.y = 1; player.add(body);
-    
-    // Pivot de l'épée
+    const armorMat = new THREE.MeshStandardMaterial({ color: 0x1a3d1a, metalness: 0.8, roughness: 0.2 }); 
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xff99cc }); 
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.4), armorMat);
+    body.position.y = 0.9;
+    player.add(body);
+
+    const headGroup = new THREE.Group();
+    headGroup.position.y = 1.5;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.45), skinMat);
+    headGroup.add(head);
+
+    const earGeo = new THREE.ConeGeometry(0.1, 0.2, 4);
+    const earL = new THREE.Mesh(earGeo, skinMat); earL.position.set(-0.15, 0.3, 0); headGroup.add(earL);
+    const earR = new THREE.Mesh(earGeo, skinMat); earR.position.set(0.15, 0.3, 0); headGroup.add(earR);
+
+    const eyeGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.12, 0.05, 0.22); headGroup.add(eyeL);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set(0.12, 0.05, 0.22); headGroup.add(eyeR);
+
+    player.add(headGroup);
+
+    const limbGeo = new THREE.BoxGeometry(0.15, 0.5, 0.15);
+    const armL = new THREE.Mesh(limbGeo, armorMat); armL.position.set(-0.4, 0.9, 0); player.add(armL);
+    const armR = new THREE.Mesh(limbGeo, armorMat); armR.position.set(0.4, 0.9, 0); player.add(armR);
+    const legL = new THREE.Mesh(limbGeo, armorMat); legL.position.set(-0.2, 0.3, 0); player.add(legL);
+    const legR = new THREE.Mesh(limbGeo, armorMat); legR.position.set(0.2, 0.3, 0); player.add(legR);
+
     swordGroup = new THREE.Group(); 
-    swordGroup.position.set(0.6, 1.1, -0.2); 
-    
-    // Lame
-    swordMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, 0.08, 2.5), 
-        new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 })
-    );
+    swordGroup.position.set(0.5, 1.1, -0.2); 
+    swordMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.5), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 }));
     swordMesh.position.z = -1.25;
     swordGroup.add(swordMesh); 
     player.add(swordGroup);
@@ -89,73 +109,60 @@ function chooseUpgrade(type) {
     createParticles(player.position, 0x00ffff);
 }
 
-/* ===== COMBAT & ANIMATIONS (MODIFIÉ) ===== */
+/* ===== COMBAT & ANIMATIONS (RÉPARÉ) ===== */
 function updateCombat(delta) {
+    // Calcul de l'échelle de base (Bonus longSword)
+    let baseSwordZ = longSwordActive ? 2.5 : 1.0;
+    let baseSwordXY = longSwordActive ? 1.5 : 1.0;
+
     if (!isAttacking || isPaused) {
-        // Position de repos fluide
         swordGroup.rotation.x = THREE.MathUtils.lerp(swordGroup.rotation.x, 0, 0.1);
         swordGroup.rotation.y = THREE.MathUtils.lerp(swordGroup.rotation.y, -0.2, 0.1);
         swordGroup.rotation.z = THREE.MathUtils.lerp(swordGroup.rotation.z, 0, 0.1);
-        swordMesh.scale.set(1, 1, 1);
+        // On applique l'échelle de base même au repos
+        swordMesh.scale.set(baseSwordXY, baseSwordXY, baseSwordZ);
         return;
     }
 
-    attackTime += delta * 3.5; // Vitesse de l'animation
-
-    // Courbe d'animation : Phase de préparation (wind-up) puis impact rapide
-    // Utilisation de Math.sin pour une fluidité organique
+    attackTime += delta * 3.5;
     let progress = Math.min(attackTime, 1);
     let swing = Math.sin(progress * Math.PI); 
 
     if (attackType === 'horizontal') {
-        // Rotation horizontale avec un léger arc de cercle (tilt)
         swordGroup.rotation.y = 1.5 - (progress * 4); 
         swordGroup.rotation.z = swing * 0.5;
-        
-        // Effet de coupure visuelle (étirement de la lame pendant l'impact)
-        if (progress > 0.3 && progress < 0.7) {
-            swordMesh.scale.x = 0.2; // La lame s'affine
-            swordMesh.scale.z = 1.4; // La lame s'allonge pour l'effet de sillage
+        if (progress > 0.3 && progress < 0.7) { 
+            swordMesh.scale.set(baseSwordXY * 0.2, baseSwordXY, baseSwordZ * 1.4); 
         } else {
-            swordMesh.scale.set(1, 1, 1);
+            swordMesh.scale.set(baseSwordXY, baseSwordXY, baseSwordZ);
         }
     } else {
-        // Attaque verticale (écrasement)
         swordGroup.rotation.x = -1.2 + (progress * 3.5);
         swordGroup.rotation.y = -0.2;
-        
-        if (progress > 0.3 && progress < 0.7) {
-            swordMesh.scale.y = 0.2;
-            swordMesh.scale.z = 1.4;
+        if (progress > 0.3 && progress < 0.7) { 
+            swordMesh.scale.set(baseSwordXY, baseSwordXY * 0.2, baseSwordZ * 1.4); 
         } else {
-            swordMesh.scale.set(1, 1, 1);
+            swordMesh.scale.set(baseSwordXY, baseSwordXY, baseSwordZ);
         }
     }
 
-    // Détection des collisions au moment du pic de vitesse (progress 0.5)
     if (progress > 0.4 && progress < 0.6) {
         const playerReach = longSwordActive ? 10 : 6;
         enemies.forEach(en => {
-            const distXZ = Math.sqrt(Math.pow(player.position.x - en.position.x, 2) + Math.pow(player.position.z - en.position.z, 2));
-            if (distXZ < (playerReach + en.userData.hitboxRadius) && !en.userData.hit) {
-                damageEnemy(en); 
-                en.userData.hit = true;
-                shakeIntensity = Math.min(shakeIntensity + 0.5, 1.2); // Petit shake à l'impact
+            const dist = player.position.distanceTo(en.position);
+            if (dist < (playerReach + en.userData.hitboxRadius) && !en.userData.hit) {
+                damageEnemy(en); en.userData.hit = true;
+                shakeIntensity = Math.min(shakeIntensity + 0.5, 1.2);
             }
         });
     }
-
-    if (attackTime >= 1) {
-        isAttacking = false;
-        attackTime = 0;
-    }
+    if (attackTime >= 1) { isAttacking = false; attackTime = 0; }
 }
 
 /* ===== ENNEMIS ===== */
 function createEnemy(type) {
     const en = new THREE.Group();
     let hp, speed, yPos;
-
     if (type === 'boss') {
         hp = 80; speed = 0.04; yPos = 0;
         const body = new THREE.Mesh(new THREE.BoxGeometry(4, 8, 4), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
@@ -172,7 +179,6 @@ function createEnemy(type) {
         en.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 0x00ff00 })));
         hp = 2; speed = 0.1; yPos = 0.6;
     }
-
     const hb = createHealthBarCanvas();
     hb.sprite.position.y = (type === 'boss') ? 11 : 1.5;
     en.add(hb.sprite);
@@ -304,13 +310,11 @@ function updateCamera() {
     let targetPosX = player.position.x + Math.sin(yaw) * dist;
     let targetPosY = player.position.y + 5 + pitch * 3;
     let targetPosZ = player.position.z + Math.cos(yaw) * dist;
-
     if (shakeIntensity > 0.01) {
         targetPosX += (Math.random() - 0.5) * shakeIntensity;
         targetPosY += (Math.random() - 0.5) * shakeIntensity;
         targetPosZ += (Math.random() - 0.5) * shakeIntensity;
     }
-
     camera.position.set(targetPosX, targetPosY, targetPosZ);
     camera.lookAt(player.position.x, player.position.y + 1.5, player.position.z);
 }
@@ -348,14 +352,19 @@ function spawnWave() {
 function updateEnemies() {
     if (enemies.length === 0 && gameActive) { wave++; spawnWave(); }
     enemies.forEach(en => {
+        const distToPlayer = player.position.distanceTo(en.position);
         const dir = new THREE.Vector3().subVectors(player.position, en.position).normalize();
-        en.position.x += dir.x * en.userData.speed; en.position.z += dir.z * en.userData.speed;
-        if (en.userData.type === 'flying') en.position.y += (player.position.y + 2 - en.position.y) * 0.02;
+        en.position.x += dir.x * en.userData.speed;
+        en.position.z += dir.z * en.userData.speed;
+        if (en.userData.type === 'flying') {
+            let targetY = (distToPlayer < 8) ? player.position.y + 1 : 6;
+            en.position.y += (targetY - en.position.y) * 0.05;
+        }
         en.lookAt(player.position.x, en.position.y, player.position.z);
         en.userData.healthBarInfo.sprite.lookAt(camera.position);
         if(en.userData.type === 'boss') en.children.forEach((c, i) => { if(i >= 2) c.rotation.x = Math.sin(Date.now()*0.005+i)*0.5; });
-        if (player.position.distanceTo(en.position) < (en.userData.type === 'boss' ? 5 : 2)) {
-            let damage = (en.userData.type === 'boss' ? 0.6 : 0.2);
+        if (distToPlayer < (en.userData.type === 'boss' ? 5 : 2.2)) {
+            let damage = (en.userData.type === 'boss' ? 0.6 : 0.25);
             playerHP -= damage;
             shakeIntensity = Math.min(shakeIntensity + damage * 2, 1.5); 
             updateUI();
@@ -388,13 +397,13 @@ function updateBonuses(delta) {
     bonuses.forEach((b, i) => {
         b.rotation.y += delta * 3;
         if (player.position.distanceTo(b.position) < 3) {
-            if (b.userData.type === 'sword') { longSwordActive = true; swordTimer = 15; swordMesh.scale.set(1.5, 1.5, 2.5); }
+            if (b.userData.type === 'sword') { longSwordActive = true; swordTimer = 15; }
             else if (b.userData.type === 'shield') activateShield();
             else if (b.userData.type === 'ally') spawnAlly(b.position);
             scene.remove(b); bonuses.splice(i, 1);
         }
     });
-    if (longSwordActive) { swordTimer -= delta; if (swordTimer <= 0) { longSwordActive = false; swordMesh.scale.set(1, 1, 1); } }
+    if (longSwordActive) { swordTimer -= delta; if (swordTimer <= 0) { longSwordActive = false; } }
     if (shieldActive) {
         shields.forEach((s, i) => {
             const angle = (Date.now() * 0.005) + (i * 2.1);
