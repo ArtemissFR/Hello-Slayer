@@ -14,10 +14,6 @@ let jumpsRemaining = 2;
 let isAttacking = false, attackTime = 0, attackType = 'none';
 let longSwordActive = false, swordTimer = 0, shieldActive = false;
 
-// Système de Shake Caméra
-let shakeIntensity = 0;
-let shakeDecay = 0.9;
-
 // Système Allié
 let companion = null, companionProjectiles = [], lastCompanionShot = 0;
 
@@ -31,7 +27,7 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
     const light = new THREE.DirectionalLight(0xff00ff, 1.2);
     light.position.set(10, 20, 10);
     scene.add(light);
@@ -46,38 +42,64 @@ function init() {
 }
 
 function createPlayer() {
-    const armorMat = new THREE.MeshStandardMaterial({ color: 0x1a3d1a, metalness: 0.8, roughness: 0.2 }); 
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xff99cc }); 
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    // Matériaux
+    const armorMat = new THREE.MeshStandardMaterial({ color: 0x2d3b1e, metalness: 0.7, roughness: 0.2 }); // Vert armure
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xfff0f5 }); // Blanc/Rose très clair
+    const detailMat = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Rouge (Nœud)
+    const blackMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
 
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.4), armorMat);
-    body.position.y = 0.9;
-    player.add(body);
+    // 1. CORPS (Armure massive)
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.9, 0.7), armorMat);
+    torso.position.y = 0.8;
+    player.add(torso);
 
+    // 2. TÊTE DE CHAT DANS LE CASQUE
     const headGroup = new THREE.Group();
-    headGroup.position.y = 1.5;
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.45), skinMat);
-    headGroup.add(head);
+    headGroup.position.y = 1.45;
 
-    const earGeo = new THREE.ConeGeometry(0.1, 0.2, 4);
-    const earL = new THREE.Mesh(earGeo, skinMat); earL.position.set(-0.15, 0.3, 0); headGroup.add(earL);
-    const earR = new THREE.Mesh(earGeo, skinMat); earR.position.set(0.15, 0.3, 0); headGroup.add(earR);
+    // Casque extérieur
+    const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.7, 0.75), armorMat);
+    headGroup.add(helmet);
 
-    const eyeGeo = new THREE.SphereGeometry(0.04, 8, 8);
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.12, 0.05, 0.22); headGroup.add(eyeL);
-    const eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set(0.12, 0.05, 0.22); headGroup.add(eyeR);
+    // Visage (l'intérieur rose/blanc)
+    const face = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.45, 0.1), skinMat);
+    face.position.z = 0.35;
+    headGroup.add(face);
+
+    // Oreilles de chat
+    const earGeo = new THREE.ConeGeometry(0.15, 0.25, 4);
+    const earL = new THREE.Mesh(earGeo, skinMat);
+    earL.position.set(-0.25, 0.4, 0.1);
+    headGroup.add(earL);
+    const earR = new THREE.Mesh(earGeo, skinMat);
+    earR.position.set(0.25, 0.4, 0.1);
+    headGroup.add(earR);
+
+    // Petit Nœud Rouge (emblématique)
+    const bow = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.1), detailMat);
+    bow.position.set(0.25, 0.35, 0.4);
+    headGroup.add(bow);
 
     player.add(headGroup);
 
-    const limbGeo = new THREE.BoxGeometry(0.15, 0.5, 0.15);
-    const armL = new THREE.Mesh(limbGeo, armorMat); armL.position.set(-0.4, 0.9, 0); player.add(armL);
-    const armR = new THREE.Mesh(limbGeo, armorMat); armR.position.set(0.4, 0.9, 0); player.add(armR);
-    const legL = new THREE.Mesh(limbGeo, armorMat); legL.position.set(-0.2, 0.3, 0); player.add(legL);
-    const legR = new THREE.Mesh(limbGeo, armorMat); legR.position.set(0.2, 0.3, 0); player.add(legR);
+    // 3. JAMBES ET BRAS (Aspect robotique/armure)
+    const limbGeo = new THREE.BoxGeometry(0.25, 0.5, 0.25);
+    
+    // Bras
+    const armL = new THREE.Mesh(limbGeo, armorMat); armL.position.set(-0.55, 0.8, 0); player.add(armL);
+    const armR = new THREE.Mesh(limbGeo, armorMat); armR.position.set(0.55, 0.8, 0); player.add(armR);
+    
+    // Jambes
+    const legL = new THREE.Mesh(limbGeo, armorMat); legL.position.set(-0.25, 0.25, 0); player.add(legL);
+    const legR = new THREE.Mesh(limbGeo, armorMat); legR.position.set(0.25, 0.25, 0); player.add(legR);
 
+    // 4. ÉPÉE (Réparée pour l'agrandissement)
     swordGroup = new THREE.Group(); 
-    swordGroup.position.set(0.5, 1.1, -0.2); 
-    swordMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.5), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 }));
+    swordGroup.position.set(0.6, 0.9, -0.2); 
+    swordMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.12, 2.5), 
+        new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 })
+    );
     swordMesh.position.z = -1.25;
     swordGroup.add(swordMesh); 
     player.add(swordGroup);
@@ -111,58 +133,51 @@ function chooseUpgrade(type) {
 
 /* ===== COMBAT & ANIMATIONS (RÉPARÉ) ===== */
 function updateCombat(delta) {
-    // Calcul de l'échelle de base (Bonus longSword)
-    let baseSwordZ = longSwordActive ? 2.5 : 1.0;
-    let baseSwordXY = longSwordActive ? 1.5 : 1.0;
+    // Calcul de l'échelle selon le bonus actif
+    let currentZScale = longSwordActive ? 2.5 : 1.0;
+    let currentXYScale = longSwordActive ? 1.8 : 1.0;
 
     if (!isAttacking || isPaused) {
-        swordGroup.rotation.x = THREE.MathUtils.lerp(swordGroup.rotation.x, 0, 0.1);
+        // Retour à la position de repos avec l'échelle correcte
         swordGroup.rotation.y = THREE.MathUtils.lerp(swordGroup.rotation.y, -0.2, 0.1);
-        swordGroup.rotation.z = THREE.MathUtils.lerp(swordGroup.rotation.z, 0, 0.1);
-        // On applique l'échelle de base même au repos
-        swordMesh.scale.set(baseSwordXY, baseSwordXY, baseSwordZ);
+        swordGroup.rotation.x = THREE.MathUtils.lerp(swordGroup.rotation.x, 0, 0.1);
+        swordMesh.scale.set(currentXYScale, currentXYScale, currentZScale);
         return;
     }
 
-    attackTime += delta * 3.5;
+    attackTime += delta * 7;
     let progress = Math.min(attackTime, 1);
-    let swing = Math.sin(progress * Math.PI); 
 
     if (attackType === 'horizontal') {
-        swordGroup.rotation.y = 1.5 - (progress * 4); 
-        swordGroup.rotation.z = swing * 0.5;
-        if (progress > 0.3 && progress < 0.7) { 
-            swordMesh.scale.set(baseSwordXY * 0.2, baseSwordXY, baseSwordZ * 1.4); 
-        } else {
-            swordMesh.scale.set(baseSwordXY, baseSwordXY, baseSwordZ);
-        }
+        swordGroup.rotation.y = 1.8 - (progress * 4);
     } else {
-        swordGroup.rotation.x = -1.2 + (progress * 3.5);
-        swordGroup.rotation.y = -0.2;
-        if (progress > 0.3 && progress < 0.7) { 
-            swordMesh.scale.set(baseSwordXY, baseSwordXY * 0.2, baseSwordZ * 1.4); 
-        } else {
-            swordMesh.scale.set(baseSwordXY, baseSwordXY, baseSwordZ);
-        }
+        swordGroup.rotation.x = -1.5 + (progress * 3);
     }
 
-    if (progress > 0.4 && progress < 0.6) {
+    // Garder l'échelle pendant l'attaque
+    swordMesh.scale.set(currentXYScale, currentXYScale, currentZScale);
+
+    if (progress > 0.3 && progress < 0.8) {
         const playerReach = longSwordActive ? 10 : 6;
         enemies.forEach(en => {
             const dist = player.position.distanceTo(en.position);
+            // On vérifie la distance totale pour inclure les ennemis volants
             if (dist < (playerReach + en.userData.hitboxRadius) && !en.userData.hit) {
                 damageEnemy(en); en.userData.hit = true;
-                shakeIntensity = Math.min(shakeIntensity + 0.5, 1.2);
             }
         });
     }
-    if (attackTime >= 1) { isAttacking = false; attackTime = 0; }
+    
+    if (attackTime >= 1) { 
+        isAttacking = false; 
+    }
 }
 
-/* ===== ENNEMIS ===== */
+/* ===== ENNEMIS (RÉPARÉS) ===== */
 function createEnemy(type) {
     const en = new THREE.Group();
     let hp, speed, yPos;
+
     if (type === 'boss') {
         hp = 80; speed = 0.04; yPos = 0;
         const body = new THREE.Mesh(new THREE.BoxGeometry(4, 8, 4), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
@@ -174,11 +189,12 @@ function createEnemy(type) {
         armPos.forEach(p => { const a = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({color:0xff0000})); a.position.set(p.x,p.y,p.z); en.add(a); });
     } else if (type === 'flying') {
         en.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.8), new THREE.MeshStandardMaterial({ color: 0xffff00 })));
-        hp = 1; speed = 0.15; yPos = 6;
+        hp = 1; speed = 0.15; yPos = 5; // Un peu plus bas
     } else {
         en.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 0x00ff00 })));
         hp = 2; speed = 0.1; yPos = 0.6;
     }
+
     const hb = createHealthBarCanvas();
     hb.sprite.position.y = (type === 'boss') ? 11 : 1.5;
     en.add(hb.sprite);
@@ -200,7 +216,30 @@ function damageEnemy(en) {
     }
 }
 
-/* ===== BOUCLE & MOUVEMENTS ===== */
+function updateEnemies() {
+    if (enemies.length === 0 && gameActive) { wave++; spawnWave(); }
+    enemies.forEach(en => {
+        const dir = new THREE.Vector3().subVectors(player.position, en.position).normalize();
+        en.position.x += dir.x * en.userData.speed; en.position.z += dir.z * en.userData.speed;
+        
+        // Logique corrigée pour les volants : ils foncent sur toi s'ils sont proches
+        if (en.userData.type === 'flying') {
+            let targetY = (en.position.distanceTo(player.position) < 10) ? player.position.y + 1 : 5;
+            en.position.y += (targetY - en.position.y) * 0.05;
+        }
+
+        en.lookAt(player.position.x, en.position.y, player.position.z);
+        en.userData.healthBarInfo.sprite.lookAt(camera.position);
+
+        if (player.position.distanceTo(en.position) < (en.userData.type === 'boss' ? 5 : 1.8)) {
+            playerHP -= (en.userData.type === 'boss' ? 0.6 : 0.3);
+            updateUI();
+            if (playerHP <= 0) gameOver();
+        }
+    });
+}
+
+/* ===== MOUVEMENTS & BOUCLE ===== */
 function updatePlayer(delta) {
     if (isPaused) return;
     const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
@@ -225,13 +264,12 @@ function gameLoop(time) {
         updatePlayer(delta); updateCombat(delta); updateEnemies(); updateBonuses(delta); 
         updateParticles(delta); updateCompanion(delta); updateProjectiles(delta);
         if (Math.random() < 0.003) spawnBonus(null, null);
-        if (shakeIntensity > 0) shakeIntensity *= shakeDecay;
     }
     updateCamera();
     renderer.render(scene, camera);
 }
 
-/* ===== SYSTÈME ALLIÉ ===== */
+/* ===== SYSTÈME ALLIÉ & PROJ ===== */
 function spawnAlly(pos) {
     if (companion) { companion.userData.hp = 50; updateHealthBarUI(companion); return; }
     companion = new THREE.Group();
@@ -277,7 +315,7 @@ function updateProjectiles(delta) {
     });
 }
 
-/* ===== UTILITAIRES & CONTROLES ===== */
+/* ===== UTILITAIRES & UI ===== */
 function createHealthBarCanvas() {
     const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 16;
     const ctx = canvas.getContext('2d');
@@ -307,15 +345,7 @@ function updateUI() {
 
 function updateCamera() {
     const dist = 10;
-    let targetPosX = player.position.x + Math.sin(yaw) * dist;
-    let targetPosY = player.position.y + 5 + pitch * 3;
-    let targetPosZ = player.position.z + Math.cos(yaw) * dist;
-    if (shakeIntensity > 0.01) {
-        targetPosX += (Math.random() - 0.5) * shakeIntensity;
-        targetPosY += (Math.random() - 0.5) * shakeIntensity;
-        targetPosZ += (Math.random() - 0.5) * shakeIntensity;
-    }
-    camera.position.set(targetPosX, targetPosY, targetPosZ);
+    camera.position.set(player.position.x + Math.sin(yaw)*dist, player.position.y + 5 + pitch*3, player.position.z + Math.cos(yaw)*dist);
     camera.lookAt(player.position.x, player.position.y + 1.5, player.position.z);
 }
 
@@ -343,34 +373,9 @@ function setupControls() {
     });
 }
 
-/* ===== GESTION CARTE & VAGUES ===== */
 function spawnWave() {
     const isBoss = wave % 5 === 0;
     for (let i = 0; i < (isBoss ? 1 : 4 + wave); i++) createEnemy(isBoss ? 'boss' : (Math.random() > 0.7 ? 'flying' : 'normal'));
-}
-
-function updateEnemies() {
-    if (enemies.length === 0 && gameActive) { wave++; spawnWave(); }
-    enemies.forEach(en => {
-        const distToPlayer = player.position.distanceTo(en.position);
-        const dir = new THREE.Vector3().subVectors(player.position, en.position).normalize();
-        en.position.x += dir.x * en.userData.speed;
-        en.position.z += dir.z * en.userData.speed;
-        if (en.userData.type === 'flying') {
-            let targetY = (distToPlayer < 8) ? player.position.y + 1 : 6;
-            en.position.y += (targetY - en.position.y) * 0.05;
-        }
-        en.lookAt(player.position.x, en.position.y, player.position.z);
-        en.userData.healthBarInfo.sprite.lookAt(camera.position);
-        if(en.userData.type === 'boss') en.children.forEach((c, i) => { if(i >= 2) c.rotation.x = Math.sin(Date.now()*0.005+i)*0.5; });
-        if (distToPlayer < (en.userData.type === 'boss' ? 5 : 2.2)) {
-            let damage = (en.userData.type === 'boss' ? 0.6 : 0.25);
-            playerHP -= damage;
-            shakeIntensity = Math.min(shakeIntensity + damage * 2, 1.5); 
-            updateUI();
-            if (playerHP <= 0) gameOver();
-        }
-    });
 }
 
 function createMap() {
