@@ -674,6 +674,11 @@ document.getElementById("startBtn").onclick = () => {
     if (music) music.play();
     const flash = document.getElementById("flashOverlay");
     
+    // Force l'initialisation du contexte audio de Three.js
+    if (THREE.AudioContext.getContext().state === 'suspended') {
+        THREE.AudioContext.getContext().resume();
+    }
+    
     // 1. Déclenche le flash instantanément
     flash.style.transition = "none";
     flash.style.opacity = "1";
