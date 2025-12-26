@@ -9,6 +9,7 @@ let highScore = localStorage.getItem('helloSlayerHighScore') || 0;
 // Nouvelles variables globales
 let listener, music, slashSound, hitSound, levelUpSound;
 let bossesKilled = 0; // Nouveau compteur
+let playerDamage = 1; // Dégâts de base
 
 let comboCount = 0;
 let lastClickTime = 0;
@@ -148,12 +149,19 @@ function levelUp() {
 }
 
 function chooseUpgrade(type) {
-    if (type === 'speed') baseSpeed += 0.06;
-    else if (type === 'jump') maxJumps += 1;
-    document.getElementById("levelUpMenu").style.display = "none";
+    if (type === 'speed') {
+        baseSpeed *= 1.15;
+    } else if (type === 'jump') {
+        maxJumps++;
+    } else if (type === 'damage') {
+        playerDamage += 0.5; // On ajoute +1 aux dégâts
+    }
+    
+    // Fermer le menu et reprendre le jeu
+    document.getElementById('levelUpMenu').style.display = 'none';
     isPaused = false;
-    renderer.domElement.requestPointerLock();
-    createParticles(player.position, 0x00ffff);
+    // On pourrait rajouter un petit son de power-up ici
+    if(levelUpSound) levelUpSound.play();
 }
 
 /* ===== COMBAT & ANIMATIONS (RÉPARÉ) ===== */
@@ -325,7 +333,7 @@ function createEnemy(type) {
 }
 
 function damageEnemy(en) {
-    en.userData.hp--;
+    en.userData.hp -= playerDamage;
     updateHealthBarUI(en);
     createParticles(en.position.clone().add(new THREE.Vector3(0, en.userData.type==='boss'?4:0, 0)), 0xff0000);
 
