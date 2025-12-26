@@ -81,58 +81,47 @@ function init() {
 }
 
 function createPlayer() {
-    // Matériaux
-    const armorMat = new THREE.MeshStandardMaterial({ color: 0x2d3b1e, metalness: 0.7, roughness: 0.2 }); // Vert armure
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xfff0f5 }); // Blanc/Rose très clair
-    const detailMat = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Rouge (Nœud)
-    const blackMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    // Matériaux de base
+    const armorMat = new THREE.MeshStandardMaterial({ color: 0x2d3b1e, metalness: 0.7, roughness: 0.2 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xfff0f5 });
+    const detailMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
 
-    // 1. CORPS (Armure massive)
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.9, 0.7), armorMat);
+    // 1. CORPS
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.9, 0.7), armorMat.clone()); // .clone() ici
     torso.position.y = 0.8;
     player.add(torso);
 
-    // 2. TÊTE DE CHAT DANS LE CASQUE
+    // 2. TÊTE
     const headGroup = new THREE.Group();
     headGroup.position.y = 1.45;
-
-    // Casque extérieur
-    const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.7, 0.75), armorMat);
+    const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.7, 0.75), armorMat.clone()); // .clone() ici
     headGroup.add(helmet);
 
-    // Visage (l'intérieur rose/blanc)
-    const face = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.45, 0.1), skinMat);
+    const face = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.45, 0.1), skinMat.clone());
     face.position.z = 0.35;
     headGroup.add(face);
 
-    // Oreilles de chat
     const earGeo = new THREE.ConeGeometry(0.15, 0.25, 4);
-    const earL = new THREE.Mesh(earGeo, skinMat);
+    const earL = new THREE.Mesh(earGeo, skinMat.clone());
     earL.position.set(-0.25, 0.4, 0.1);
     headGroup.add(earL);
-    const earR = new THREE.Mesh(earGeo, skinMat);
+    const earR = new THREE.Mesh(earGeo, skinMat.clone());
     earR.position.set(0.25, 0.4, 0.1);
     headGroup.add(earR);
 
-    // Petit Nœud Rouge (emblématique)
-    const bow = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.1), detailMat);
+    const bow = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.1), detailMat.clone());
     bow.position.set(0.25, 0.35, 0.4);
     headGroup.add(bow);
-
     player.add(headGroup);
 
-    // 3. JAMBES ET BRAS (Aspect robotique/armure)
+    // 3. JAMBES ET BRAS
     const limbGeo = new THREE.BoxGeometry(0.25, 0.5, 0.25);
-    
-    // Bras
-    const armL = new THREE.Mesh(limbGeo, armorMat); armL.position.set(-0.55, 0.8, 0); player.add(armL);
-    const armR = new THREE.Mesh(limbGeo, armorMat); armR.position.set(0.55, 0.8, 0); player.add(armR);
-    
-    // Jambes
-    const legL = new THREE.Mesh(limbGeo, armorMat); legL.position.set(-0.25, 0.25, 0); player.add(legL);
-    const legR = new THREE.Mesh(limbGeo, armorMat); legR.position.set(0.25, 0.25, 0); player.add(legR);
+    const armL = new THREE.Mesh(limbGeo, armorMat.clone()); armL.position.set(-0.55, 0.8, 0); player.add(armL);
+    const armR = new THREE.Mesh(limbGeo, armorMat.clone()); armR.position.set(0.55, 0.8, 0); player.add(armR);
+    const legL = new THREE.Mesh(limbGeo, armorMat.clone()); legL.position.set(-0.25, 0.25, 0); player.add(legL);
+    const legR = new THREE.Mesh(limbGeo, armorMat.clone()); legR.position.set(0.25, 0.25, 0); player.add(legR);
 
-    // 4. ÉPÉE (Réparée pour l'agrandissement)
+    // 4. ÉPÉE ET TRAÎNÉE (Reste inchangé)
     swordGroup = new THREE.Group(); 
     swordGroup.position.set(0.6, 0.9, -0.2); 
     swordMesh = new THREE.Mesh(
@@ -143,16 +132,10 @@ function createPlayer() {
     swordGroup.add(swordMesh); 
     player.add(swordGroup);
 
-    // Création de la géométrie de la traînée
     trailGeometry = new THREE.BufferGeometry();
-    const trailMat = new THREE.MeshBasicMaterial({
-        color: 0xff0000,
-        transparent: true,
-        opacity: 0.5,
-        side: THREE.DoubleSide
-    });
+    const trailMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
     trailMesh = new THREE.Mesh(trailGeometry, trailMat);
-    trailMesh.frustumCulled = false; // Empêche la traînée de disparaître bizarrement
+    trailMesh.frustumCulled = false;
     scene.add(trailMesh);
 }
 
@@ -464,10 +447,8 @@ function updatePlayer(delta) {
 
     // --- LOGIQUE DU SALTO ---
     if (isDoingFlip) {
-        // Vitesse de base (0.25) + un bonus selon le numéro du saut
-        // Plus jumpCount est élevé, plus ça tourne vite
+        // Vitesse qui augmente avec le nombre de sauts
         const flipSpeed = 0.20 + (jumpCount * 0.05); 
-        
         player.rotation.x -= flipSpeed; 
 
         if (player.rotation.x <= -Math.PI * 2) {
@@ -635,14 +616,18 @@ function setupControls() {
 
         // --- SAUT ET SALTO (DYNAMIQUE) ---
         if (e.code === 'Space' && gameActive && !isPaused) {
-            if (jumpCount < maxJumps) { // Utilise maxJumps au lieu de 2
+            if (jumpCount < maxJumps) {
                 jumpCount++;
                 velocityY = 0.4; 
 
-                // On déclenche le salto dès le 2ème saut
                 if (jumpCount >= 2) {
                     isDoingFlip = true;
                     player.rotation.x = 0; 
+                    
+                    // Si c'est le TOUT DERNIER saut disponible
+                    if (jumpCount === maxJumps) {
+                        triggerYellowFlash();
+                    }
                 }
             }
         }
@@ -1054,6 +1039,38 @@ function throwScythe() {
             }
         });
     }, 20);
+}
+
+function triggerYellowFlash() {
+    player.traverse(child => {
+        if (child.isMesh && child !== swordMesh && child !== trailMesh) {
+            
+            // Ne sauvegarde la couleur d'origine que si on ne flashe pas déjà
+            if (!child.userData.isFlashing) {
+                child.userData.originalColor = child.material.color.getHex();
+                child.userData.isFlashing = true;
+            }
+            
+            // Applique le Jaune
+            child.material.color.setHex(0xffff00);
+            if (child.material.emissive) {
+                child.material.emissive.setHex(0xffff00);
+                child.material.emissiveIntensity = 2;
+            }
+
+            // Remise à zéro propre
+            setTimeout(() => {
+                if (child.material && child.userData.isFlashing) {
+                    child.material.color.setHex(child.userData.originalColor);
+                    if (child.material.emissive) {
+                        child.material.emissive.setHex(0x000000);
+                        child.material.emissiveIntensity = 0;
+                    }
+                    child.userData.isFlashing = false; // Prêt pour le prochain flash
+                }
+            }, 150);
+        }
+    });
 }
 
 // Appelle la fonction immédiatement pour que l'animation tourne au chargement
