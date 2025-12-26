@@ -135,3 +135,13 @@ button:hover {
         opacity: 0;
     }
 }
+
+@keyframes pulseReady {
+    0% { filter: brightness(1); transform: scale(1); }
+    50% { filter: brightness(1.5); transform: scale(1.05); }
+    100% { filter: brightness(1); transform: scale(1); }
+}
+
+.scythe-ready {
+    animation: pulseReady 1s infinite;
+}

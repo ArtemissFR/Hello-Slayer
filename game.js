@@ -17,7 +17,7 @@ const COMBO_DURATION = 3000; // 3 secondes pour enchaîner
 
 let scytheActive = false;
 let lastScytheTime = 0;
-const SCYTHE_COOLDOWN = 3000; // 3 secondes de recharge
+const SCYTHE_COOLDOWN = 10000; // 10 secondes de recharge
 let scytheMesh;
 
 let comboCount = 0;
@@ -69,6 +69,12 @@ function init() {
     scytheMesh.rotation.x = Math.PI / 2;
     scytheMesh.visible = false;
     scene.add(scytheMesh);
+    scytheMesh.visible = false;
+    scene.add(scytheMesh);
+
+    // AJOUTER CECI POUR LA LUMIERE DE LA FAUX
+    const scytheLight = new THREE.PointLight(0xffc400, 10, 15); // Couleur , intensité 10, portée 15
+    scytheMesh.add(scytheLight); // La lumière est enfant de la faux, donc elle la suivra !
 }
 
 function createPlayer() {
@@ -541,14 +547,31 @@ function updateUI() {
     document.getElementById("hpText").textContent = Math.ceil(playerHP);
     document.getElementById("healthBar").style.width = playerHP + "%";
     document.getElementById("xpBar").style.width = (playerXP / xpToNextLevel * 100) + "%";
-    const scytheStatus = document.getElementById('scytheStatus');
-    const cooldownLeft = Math.max(0, (SCYTHE_COOLDOWN - (Date.now() - lastScytheTime)) / 1000);
-    if (cooldownLeft > 0) {
-        scytheStatus.innerText = `FAUX : RECHARGE (${cooldownLeft.toFixed(1)}s)`;
-        scytheStatus.style.color = "#555";
+    const scytheBar = document.getElementById('scytheBar');
+    const scythePercent = document.getElementById('scythePercent');
+    const scytheReadyText = document.getElementById('scytheReadyText');
+    const scytheUI = document.getElementById('scytheUI');
+
+    const timeSinceLast = Date.now() - lastScytheTime;
+    const progress = Math.min(1, timeSinceLast / SCYTHE_COOLDOWN);
+    const percentage = Math.floor(progress * 100);
+
+    // Mise à jour de la barre et du texte %
+    scytheBar.style.width = percentage + "%";
+    scythePercent.innerText = percentage + "%";
+
+    if (progress >= 1) {
+        // QUAND C'EST PRÊT
+        scytheBar.style.background = "#00ffff";
+        scytheBar.style.boxShadow = "0 0 10px #00ffff";
+        scytheReadyText.style.display = "block";
+        scytheUI.classList.add('scythe-ready');
     } else {
-        scytheStatus.innerText = "FAUX : PRÊTE (E)";
-        scytheStatus.style.color = "#00e5ffff";
+        // PENDANT LA RECHARGE
+        scytheBar.style.background = "linear-gradient(90deg, #004444, #008888)";
+        scytheBar.style.boxShadow = "none";
+        scytheReadyText.style.display = "none";
+        scytheUI.classList.remove('scythe-ready');
     }
 }
 
