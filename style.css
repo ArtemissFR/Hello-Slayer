@@ -5,11 +5,57 @@ body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New'
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     color: #ff0000; text-align: center;
 }
-h1 { font-size: 80px; text-shadow: 0 0 20px #ff0000; margin: 10px; }
-button {
-    padding: 15px 50px; font-size: 25px; background: #600; color: #fff;
-    border: 2px solid #f00; cursor: pointer; box-shadow: 0 0 15px #f00;
+
+/* Style mis à jour pour le titre démoniaque */
+h1 { 
+    font-family: 'Nosifer', cursive;
+    font-size: 70px; 
+    color: #ff0000; /* Assure la couleur rouge de base */
+    margin: 10px;
+    position: relative;
+    /* On combine le tremblement et le clignotement */
+    animation: demonicShake 0.3s infinite, demonicFlicker 2s infinite;
+    text-shadow: 0 0 20px #ff0000; /* Lueur d'origine */
 }
+
+/* Animation de tremblement (instabilité) */
+@keyframes demonicShake {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(2px, -2px) rotate(0.5deg); }
+    50% { transform: translate(-2px, 2px) rotate(-0.5deg); }
+    75% { transform: translate(1px, 1px) rotate(0deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* Animation de clignotement de la lueur (effet de flamme/sang) */
+@keyframes demonicFlicker {
+    0%, 100% { text-shadow: 0 0 20px #ff0000, 0 0 10px #600; opacity: 1; }
+    50% { text-shadow: 0 0 40px #ff0000, 0 0 20px #f00, 0 0 10px #fff; opacity: 0.8; }
+    55% { opacity: 0.9; }
+    60% { opacity: 0.6; }
+    65% { opacity: 1; }
+}
+
+/* On applique aussi la police au bouton pour la cohérence */
+button {
+    font-family: 'Nosifer', cursive;
+    padding: 15px 50px; /* */
+    font-size: 20px; 
+    background: #600; /* */
+    color: #fff; /* */
+    border: 2px solid #f00; /* */
+    cursor: pointer; /* */
+    box-shadow: 0 0 15px #f00; /* */
+    transition: transform 0.2s;
+}
+
+/* Optionnel : effet de survol pour le bouton */
+button:hover {
+    transform: scale(1.1);
+    background: #900;
+    box-shadow: 0 0 30px #ff0000;
+}
+
 #ui {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 85%;
     display: none; background: rgba(0, 0, 0, 0.85); border: 2px solid #900; padding: 15px;
