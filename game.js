@@ -270,6 +270,10 @@ function createEnemy(type) {
         const armGeo = new THREE.BoxGeometry(1.2, 5, 1.2);
         const armPos = [{x:-3,y:6,z:0},{x:3,y:6,z:0},{x:-3,y:3,z:0},{x:3,y:3,z:0}];
         armPos.forEach(p => { const a = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({color:0xff0000})); a.position.set(p.x,p.y,p.z); en.add(a); });
+    } else if (type === 'archer') {
+        // Modèle Archer : Un prisme violet
+        en.add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.8, 6), new THREE.MeshStandardMaterial({ color: 0x8800ff })));
+        hp = 2; speed = 0.05; yPos = 0.9;
     } else if (type === 'flying') {
         en.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.8), new THREE.MeshStandardMaterial({ color: 0xffff00 })));
         hp = 1; speed = 0.15; yPos = 5; // Un peu plus bas
@@ -284,12 +288,43 @@ function createEnemy(type) {
     en.position.set((Math.random()-0.5)*180, yPos, (Math.random()-0.5)*180);
     en.userData = { type, hp, maxHp: hp, speed, hit: false, healthBarInfo: hb, hitboxRadius: (type === 'boss' ? 4.5 : 1.5) };
     enemies.push(en); scene.add(en);
+
+    // Ajoute 'lastShot' pour gérer la cadence de tir de l'archer
+    en.userData = { 
+        type, hp, maxHp: hp, speed, hit: false, 
+        healthBarInfo: hb, 
+        hitboxRadius: (type === 'boss' ? 4.5 : 1.5),
+        lastShot: 0 
+    };
 }
 
 function damageEnemy(en) {
     en.userData.hp--;
     updateHealthBarUI(en);
     createParticles(en.position.clone().add(new THREE.Vector3(0, en.userData.type==='boss'?4:0, 0)), 0xff0000);
+
+    // --- EFFET DE HIT FLASH ---
+    // On parcourt tous les enfants de l'ennemi pour trouver les parties du corps (Mesh)
+    en.traverse(child => {
+        if (child.isMesh && child.material && child.material.emissive) {
+            const originalColor = child.material.emissive.getHex();
+            const originalIntensity = child.material.emissiveIntensity;
+
+            // On fait flasher en blanc pur avec une forte intensité
+            child.material.emissive.setHex(0xffffff);
+            child.material.emissiveIntensity = 2;
+
+            // On remet la couleur d'origine après 80 millisecondes
+            setTimeout(() => {
+                if (child.material) { // Vérification si l'ennemi n'a pas été supprimé entre-temps
+                    child.material.emissive.setHex(originalColor);
+                    child.material.emissiveIntensity = originalIntensity;
+                }
+            }, 80);
+        }
+    });
+    // ---------------------------
+
     if (en.userData.hp <= 0) {
         score += 100;
         checkHighScore();
@@ -303,9 +338,32 @@ function damageEnemy(en) {
 function updateEnemies() {
     if (enemies.length === 0 && gameActive) { wave++; spawnWave(); }
     enemies.forEach(en => {
+        const dist = en.position.distanceTo(player.position);
         const dir = new THREE.Vector3().subVectors(player.position, en.position).normalize();
         en.position.x += dir.x * en.userData.speed; en.position.z += dir.z * en.userData.speed;
         
+        if (en.userData.type === 'archer') {
+            // L'archer s'arrête à 15 unités du joueur
+            if (dist > 15) {
+                en.position.x += dir.x * en.userData.speed;
+                en.position.z += dir.z * en.userData.speed;
+            } else if (dist < 10) {
+                // Il recule si le joueur est trop proche
+                en.position.x -= dir.x * en.userData.speed;
+                en.position.z -= dir.z * en.userData.speed;
+            }
+
+            // Tirer une flèche toutes les 2 secondes
+            if (Date.now() - en.userData.lastShot > 2000 && dist < 30) {
+                spawnEnemyProjectile(en.position, player.position);
+                en.userData.lastShot = Date.now();
+            }
+        } else {
+            // ... Logique de mouvement des autres ennemis (Normal/Boss/Flying)
+            en.position.x += dir.x * en.userData.speed;
+            en.position.z += dir.z * en.userData.speed;
+        }
+
         // Logique corrigée pour les volants : ils foncent sur toi s'ils sont proches
         if (en.userData.type === 'flying') {
             let targetY = (en.position.distanceTo(player.position) < 10) ? player.position.y + 1 : 5;
@@ -346,7 +404,7 @@ function gameLoop(time) {
     lastTime = time;
     if (gameActive && !isPaused) {
         updatePlayer(delta); updateCombat(delta); updateEnemies(); updateBonuses(delta); 
-        updateParticles(delta); updateCompanion(delta); updateProjectiles(delta);
+        updateParticles(delta); updateCompanion(delta); updateProjectiles(delta); updateEnemyProjectiles(delta);
         if (Math.random() < 0.003) spawnBonus(null, null);
     }
     updateCamera();
@@ -490,7 +548,15 @@ function setupControls() {
 
 function spawnWave() {
     const isBoss = wave % 5 === 0;
-    for (let i = 0; i < (isBoss ? 1 : 4 + wave); i++) createEnemy(isBoss ? 'boss' : (Math.random() > 0.7 ? 'flying' : 'normal'));
+    for (let i = 0; i < (isBoss ? 1 : 4 + wave); i++) {
+        let type = 'normal';
+        const rand = Math.random();
+        if (isBoss) type = 'boss';
+        else if (rand > 0.8) type = 'archer'; // 20% de chance d'être un archer
+        else if (rand > 0.6) type = 'flying';
+        
+        createEnemy(type);
+    }
 }
 
 function createMap() {
@@ -595,6 +661,44 @@ document.getElementById("startBtn").onclick = () => {
         flash.style.opacity = "0";
     }, 150);
 };
+
+let enemyProjectiles = [];
+
+function spawnEnemyProjectile(startPos, targetPos) {
+    const arrow = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.3, 1), 
+        new THREE.MeshBasicMaterial({ color: 0xff00ff })
+    );
+    arrow.position.copy(startPos).setY(1.2);
+    
+    const dir = new THREE.Vector3().subVectors(targetPos, arrow.position).normalize();
+    arrow.lookAt(targetPos);
+    arrow.userData = { dir, life: 4 };
+    
+    enemyProjectiles.push(arrow);
+    scene.add(arrow);
+}
+
+function updateEnemyProjectiles(delta) {
+    enemyProjectiles.forEach((p, i) => {
+        p.position.add(p.userData.dir.clone().multiplyScalar(0.4));
+        p.userData.life -= delta;
+
+        // Collision avec le joueur
+        if (p.position.distanceTo(player.position) < 1.5) {
+            playerHP -= 10;
+            updateUI();
+            createParticles(player.position, 0xff0000);
+            p.userData.life = 0;
+            if (playerHP <= 0) gameOver();
+        }
+
+        if (p.userData.life <= 0) {
+            scene.remove(p);
+            enemyProjectiles.splice(i, 1);
+        }
+    });
+}
 
 function initMenuAnimation() {
     const canvas = document.getElementById('bloodCanvas');
