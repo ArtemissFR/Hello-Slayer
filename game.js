@@ -19,7 +19,9 @@ let jumpsRemaining = 2;
 let isAttacking = false, attackTime = 0, attackType = 'none';
 let longSwordActive = false, swordTimer = 0, shieldActive = false;
 
-
+let trailMesh, trailGeometry;
+const TRAIL_MAX_POINTS = 10; // Longueur de la traînée
+let trailPoints = [];
 
 // Système Allié
 let companion = null, companionProjectiles = [], lastCompanionShot = 0;
@@ -110,6 +112,18 @@ function createPlayer() {
     swordMesh.position.z = -1.25;
     swordGroup.add(swordMesh); 
     player.add(swordGroup);
+
+    // Création de la géométrie de la traînée
+    trailGeometry = new THREE.BufferGeometry();
+    const trailMat = new THREE.MeshBasicMaterial({
+        color: 0xff0000,
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.DoubleSide
+    });
+    trailMesh = new THREE.Mesh(trailGeometry, trailMat);
+    trailMesh.frustumCulled = false; // Empêche la traînée de disparaître bizarrement
+    scene.add(trailMesh);
 }
 
 /* ===== SYSTEME DE NIVEAU ET CHOIX ===== */
@@ -140,19 +154,51 @@ function chooseUpgrade(type) {
 
 /* ===== COMBAT & ANIMATIONS (RÉPARÉ) ===== */
 function updateCombat(delta) {
-    // Calcul de l'échelle selon le bonus actif
     let currentZScale = longSwordActive ? 2.5 : 1.0;
     let currentXYScale = longSwordActive ? 1.8 : 1.0;
 
     if (!isAttacking || isPaused) {
-        // Retour à la position de repos avec l'échelle correcte
         swordGroup.rotation.y = THREE.MathUtils.lerp(swordGroup.rotation.y, -0.2, 0.1);
         swordGroup.rotation.x = THREE.MathUtils.lerp(swordGroup.rotation.x, 0, 0.1);
         swordMesh.scale.set(currentXYScale, currentXYScale, currentZScale);
+        
+        // Effacer la traînée quand on n'attaque pas
+        trailPoints = [];
+        trailGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(), 3));
         return;
     }
 
+    // --- LOGIQUE DE LA TRAÎNÉE ---
+    // Calculer la position du haut et du bas de la lame dans le monde
+    const tip = new THREE.Vector3(0, 0, -2.5 * currentZScale);
+    const base = new THREE.Vector3(0, 0, 0);
+    swordMesh.localToWorld(tip);
+    swordMesh.localToWorld(base);
+
+    trailPoints.push(tip, base);
+    if (trailPoints.length > TRAIL_MAX_POINTS * 2) trailPoints.shift(), trailPoints.shift();
+
+    if (trailPoints.length >= 4) {
+        const vertices = [];
+        for (let i = 0; i < trailPoints.length - 2; i += 2) {
+            // Créer deux triangles pour chaque segment de traînée
+            vertices.push(trailPoints[i].x, trailPoints[i].y, trailPoints[i].z);
+            vertices.push(trailPoints[i+1].x, trailPoints[i+1].y, trailPoints[i+1].z);
+            vertices.push(trailPoints[i+2].x, trailPoints[i+2].y, trailPoints[i+2].z);
+
+            vertices.push(trailPoints[i+1].x, trailPoints[i+1].y, trailPoints[i+1].z);
+            vertices.push(trailPoints[i+3].x, trailPoints[i+3].y, trailPoints[i+3].z);
+            vertices.push(trailPoints[i+2].x, trailPoints[i+2].y, trailPoints[i+2].z);
+        }
+        trailGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+        
+        // Changer la couleur de la traînée selon l'attaque
+        trailMesh.material.color.setHex(attackType === 'super' ? 0x00ffff : 0xff0000);
+    }
+    // -----------------------------
+
     attackTime += delta * 7;
+    // ... reste de ta fonction updateCombat existante
     let progress = Math.min(attackTime, 1);
 
     if (attackType === 'super') {
