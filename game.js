@@ -10,9 +10,15 @@ let highScore = localStorage.getItem('helloSlayerHighScore') || 0;
 let listener, music, slashSound, hitSound, levelUpSound;
 let bossesKilled = 0; // Nouveau compteur
 let playerDamage = 1; // Dégâts de base
+
 let currentCombo = 0;
 let comboTimer = null;
 const COMBO_DURATION = 3000; // 3 secondes pour enchaîner
+
+let scytheActive = false;
+let lastScytheTime = 0;
+const SCYTHE_COOLDOWN = 3000; // 3 secondes de recharge
+let scytheMesh;
 
 let comboCount = 0;
 let lastClickTime = 0;
@@ -56,6 +62,13 @@ function init() {
     createMap();
     setupControls();
     gameLoop(0);
+
+    const scytheGeo = new THREE.TorusGeometry(2, 0.2, 8, 20, Math.PI); // Forme de croissant
+    const scytheMat = new THREE.MeshStandardMaterial({ color: 0xffa500, emissive: 0xffa500, side: THREE.DoubleSide });
+    scytheMesh = new THREE.Mesh(scytheGeo, scytheMat);
+    scytheMesh.rotation.x = Math.PI / 2;
+    scytheMesh.visible = false;
+    scene.add(scytheMesh);
 }
 
 function createPlayer() {
@@ -528,6 +541,15 @@ function updateUI() {
     document.getElementById("hpText").textContent = Math.ceil(playerHP);
     document.getElementById("healthBar").style.width = playerHP + "%";
     document.getElementById("xpBar").style.width = (playerXP / xpToNextLevel * 100) + "%";
+    const scytheStatus = document.getElementById('scytheStatus');
+    const cooldownLeft = Math.max(0, (SCYTHE_COOLDOWN - (Date.now() - lastScytheTime)) / 1000);
+    if (cooldownLeft > 0) {
+        scytheStatus.innerText = `FAUX : RECHARGE (${cooldownLeft.toFixed(1)}s)`;
+        scytheStatus.style.color = "#555";
+    } else {
+        scytheStatus.innerText = "FAUX : PRÊTE (E)";
+        scytheStatus.style.color = "#00e5ffff";
+    }
 }
 
 function checkHighScore() {
@@ -545,6 +567,12 @@ function updateCamera() {
 }
 
 function setupControls() {
+    window.addEventListener('keydown', (e) => {
+        keys[e.code] = true;
+        if (e.code === 'KeyE' && gameActive && !isPaused) {
+            throwScythe();
+        }
+    });
     window.addEventListener('keydown', e => { 
         if (isPaused) return;
         keys[e.key.toLowerCase()] = true; 
@@ -900,6 +928,57 @@ function spawnDamageText(enemy, amount) {
     setTimeout(() => {
         div.remove();
     }, 800);
+}
+
+function throwScythe() {
+    const now = Date.now();
+    if (now - lastScytheTime < SCYTHE_COOLDOWN) return; // Encore en recharge
+    
+    lastScytheTime = now;
+    scytheActive = true;
+    scytheMesh.visible = true;
+    
+    // Position de départ (devant le joueur)
+    scytheMesh.position.copy(player.position);
+    scytheMesh.position.y = 1.5;
+    
+    // Direction du tir
+    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    direction.y = 0; // On reste à l'horizontale
+    direction.normalize();
+
+    let distanceTraveled = 0;
+    const maxDistance = 25;
+    let returning = false;
+
+    const moveInterval = setInterval(() => {
+        if (!scytheActive) { clearInterval(moveInterval); return; }
+
+        // Rotation de la faux sur elle-même
+        scytheMesh.rotation.z += 0.5;
+
+        if (!returning) {
+            scytheMesh.position.addScaledVector(direction, 0.8);
+            distanceTraveled += 0.8;
+            if (distanceTraveled >= maxDistance) returning = true;
+        } else {
+            // Retour vers le joueur
+            const toPlayer = new THREE.Vector3().subVectors(player.position, scytheMesh.position).normalize();
+            scytheMesh.position.addScaledVector(toPlayer, 0.8);
+            if (scytheMesh.position.distanceTo(player.position) < 2) {
+                scytheActive = false;
+                scytheMesh.visible = false;
+                clearInterval(moveInterval);
+            }
+        }
+
+        // Détection des collisions avec les ennemis
+        enemies.forEach(en => {
+            if (scytheMesh.position.distanceTo(en.position) < 3) {
+                damageEnemy(en); // Utilise tes dégâts actuels (boostés par la carte FORCE)
+            }
+        });
+    }, 20);
 }
 
 // Appelle la fonction immédiatement pour que l'animation tourne au chargement
