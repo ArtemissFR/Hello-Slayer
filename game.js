@@ -406,6 +406,7 @@ function updateEnemies() {
         if (player.position.distanceTo(en.position) < (en.userData.type === 'boss' ? 5 : 1.8)) {
             playerHP -= (en.userData.type === 'boss' ? 0.6 : 0.3);
             updateUI();
+            triggerDamageEffect(); // <--- Ajoute ceci
             if (playerHP <= 0) gameOver();
         }
     });
@@ -753,6 +754,7 @@ function updateEnemyProjectiles(delta) {
         if (p.position.distanceTo(player.position) < 1.5) {
             playerHP -= 10;
             updateUI();
+            triggerDamageEffect(); // <--- Ajoute ceci
             createParticles(player.position, 0xff0000);
             p.userData.life = 0;
             if (playerHP <= 0) gameOver();
@@ -816,6 +818,17 @@ function initMenuAnimation() {
         }
     }
     animate();
+}
+
+function triggerDamageEffect() {
+    const overlay = document.getElementById("damageOverlay");
+    overlay.style.opacity = "1";
+    
+    // On fait disparaître le flash rouge après 200ms
+    setTimeout(() => {
+        overlay.style.opacity = "0";
+        pitch += (Math.random() - 0.5) * 0.1;
+    }, 200);
 }
 
 // Appelle la fonction immédiatement pour que l'animation tourne au chargement
