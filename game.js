@@ -264,8 +264,12 @@ function createEnemy(type) {
     const en = new THREE.Group();
     let hp, speed, yPos;
 
+    // Calcul du multiplicateur de difficulté (ex: +50% de PV par vague après la vague 1)
+    const difficultyMultiplier = 1 + (wave - 1) * 0.5;
+
     if (type === 'boss') {
-        hp = 80; speed = 0.04; yPos = 0;
+        hp = Math.floor(80 * difficultyMultiplier); // PV de base du boss : 80
+        speed = 0.04; yPos = 0;
         const body = new THREE.Mesh(new THREE.BoxGeometry(4, 8, 4), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
         body.position.y = 4; en.add(body);
         const head = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 2.5), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
@@ -276,13 +280,16 @@ function createEnemy(type) {
     } else if (type === 'archer') {
         // Modèle Archer : Un prisme violet
         en.add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.8, 6), new THREE.MeshStandardMaterial({ color: 0x8800ff })));
-        hp = 2; speed = 0.05; yPos = 0.9;
+        hp = Math.floor(2 * difficultyMultiplier);
+        speed = 0.05; yPos = 0.9;
     } else if (type === 'flying') {
         en.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.8), new THREE.MeshStandardMaterial({ color: 0xffff00 })));
-        hp = 1; speed = 0.15; yPos = 5; // Un peu plus bas
+        hp = Math.floor(1 * difficultyMultiplier); 
+        speed = 0.15; yPos = 5; // Un peu plus bas
     } else {
         en.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 0x00ff00 })));
-        hp = 2; speed = 0.1; yPos = 0.6;
+        hp = Math.floor(2 * difficultyMultiplier);
+        speed = 0.1; yPos = 0.6;
     }
 
     const hb = createHealthBarCanvas();
