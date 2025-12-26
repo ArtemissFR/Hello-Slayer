@@ -336,23 +336,24 @@ function createEnemy(type) {
 }
 
 function damageEnemy(en) {
-    en.userData.hp -= playerDamage;
+    // On utilise la variable playerDamage qu'on a créée pour la carte FORCE
+    en.userData.hp -= playerDamage; 
+    
+    // ON AJOUTE LE TEXTE ICI
+    spawnDamageText(en, playerDamage);
+
     updateHealthBarUI(en);
     createParticles(en.position.clone().add(new THREE.Vector3(0, en.userData.type==='boss'?4:0, 0)), 0xff0000);
 
-    // --- EFFET DE HIT FLASH ---
+    // Effet de hit flash...
     en.traverse(child => {
         if (child.isMesh && child.material && child.material.emissive) {
-            const originalColor = child.material.emissive.getHex();
-            const originalIntensity = child.material.emissiveIntensity;
-
             child.material.emissive.setHex(0xffffff);
             child.material.emissiveIntensity = 2;
-
             setTimeout(() => {
                 if (child.material) { 
-                    child.material.emissive.setHex(originalColor);
-                    child.material.emissiveIntensity = originalIntensity;
+                    child.material.emissive.setHex(0x000000);
+                    child.material.emissiveIntensity = 0;
                 }
             }, 80);
         }
@@ -874,6 +875,31 @@ function increaseCombo() {
 function resetCombo() {
     currentCombo = 0;
     document.getElementById('comboContainer').style.display = 'none';
+}
+
+function spawnDamageText(enemy, amount) {
+    // Conversion de la position 3D de l'ennemi en coordonnées 2D sur l'écran
+    const vector = enemy.position.clone();
+    vector.y += 2; // On affiche le texte un peu au-dessus de l'ennemi
+    
+    vector.project(camera);
+
+    const x = (vector.x * .5 + .5) * window.innerWidth;
+    const y = (vector.y * -.5 + .5) * window.innerHeight;
+
+    // Création de l'élément HTML
+    const div = document.createElement('div');
+    div.className = 'damage-number';
+    div.style.left = x + 'px';
+    div.style.top = y + 'px';
+    div.innerText = "-" + amount;
+
+    document.body.appendChild(div);
+
+    // On retire l'élément après l'animation (800ms)
+    setTimeout(() => {
+        div.remove();
+    }, 800);
 }
 
 // Appelle la fonction immédiatement pour que l'animation tourne au chargement

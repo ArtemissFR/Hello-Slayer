@@ -112,3 +112,26 @@ button:hover {
     z-index: 9999; /* Toujours au-dessus de tout */
     transition: opacity 0.1s ease-in;
 }
+
+.damage-number {
+    position: fixed;
+    pointer-events: none;
+    font-family: 'Nosifer', cursive; /* On garde le style démoniaque */
+    font-size: 24px;
+    font-weight: bold;
+    color: #ff0000; /* Couleur orangée pour la force */
+    text-shadow: 2px 2px 5px #000;
+    z-index: 2000;
+    animation: floatUpAndFade 0.8s ease-out forwards;
+}
+
+@keyframes floatUpAndFade {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-100px);
+        opacity: 0;
+    }
+}
