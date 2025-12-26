@@ -8,6 +8,7 @@ let highScore = localStorage.getItem('helloSlayerHighScore') || 0;
 
 // Nouvelles variables globales
 let listener, music, slashSound, hitSound, levelUpSound;
+let bossesKilled = 0; // Nouveau compteur
 
 let comboCount = 0;
 let lastClickTime = 0;
@@ -264,48 +265,63 @@ function createEnemy(type) {
     const en = new THREE.Group();
     let hp, speed, yPos;
 
-    // Calcul du multiplicateur de difficulté (ex: +50% de PV par vague après la vague 1)
-    const difficultyMultiplier = 1 + (wave - 1) * 0.5;
+    // Multiplicateurs distincts
+    const waveMultiplier = 1 + (wave - 1) * 0.1; // +10% par vague pour les sbires
+    const bossMultiplier = 1 + (bossesKilled * 0.5); // +50% par boss tué
 
     if (type === 'boss') {
-        hp = Math.floor(80 * difficultyMultiplier); // PV de base du boss : 80
-        speed = 0.04; yPos = 0;
+        hp = Math.floor(80 * bossMultiplier); 
+        speed = 0.04; 
+        yPos = 0;
+        
         const body = new THREE.Mesh(new THREE.BoxGeometry(4, 8, 4), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
         body.position.y = 4; en.add(body);
         const head = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 2.5), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
         head.position.y = 9; en.add(head);
         const armGeo = new THREE.BoxGeometry(1.2, 5, 1.2);
         const armPos = [{x:-3,y:6,z:0},{x:3,y:6,z:0},{x:-3,y:3,z:0},{x:3,y:3,z:0}];
-        armPos.forEach(p => { const a = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({color:0xff0000})); a.position.set(p.x,p.y,p.z); en.add(a); });
+        armPos.forEach(p => { 
+            const a = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({color:0xff0000})); 
+            a.position.set(p.x,p.y,p.z); 
+            en.add(a); 
+        });
     } else if (type === 'archer') {
-        // Modèle Archer : Un prisme violet
         en.add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.8, 6), new THREE.MeshStandardMaterial({ color: 0x8800ff })));
-        hp = Math.floor(2 * difficultyMultiplier);
-        speed = 0.05; yPos = 0.9;
+        hp = Math.ceil(2 * waveMultiplier); 
+        speed = 0.05; 
+        yPos = 0.9;
     } else if (type === 'flying') {
         en.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.8), new THREE.MeshStandardMaterial({ color: 0xffff00 })));
-        hp = Math.floor(1 * difficultyMultiplier); 
-        speed = 0.15; yPos = 5; // Un peu plus bas
+        hp = Math.ceil(1 * waveMultiplier); 
+        speed = 0.15; 
+        yPos = 5;
     } else {
         en.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 0x00ff00 })));
-        hp = Math.floor(2 * difficultyMultiplier);
-        speed = 0.1; yPos = 0.6;
+        hp = Math.ceil(2 * waveMultiplier); 
+        speed = 0.1; 
+        yPos = 0.6;
     }
 
     const hb = createHealthBarCanvas();
     hb.sprite.position.y = (type === 'boss') ? 11 : 1.5;
     en.add(hb.sprite);
+    
+    // Positionnement aléatoire sur la map
     en.position.set((Math.random()-0.5)*180, yPos, (Math.random()-0.5)*180);
-    en.userData = { type, hp, maxHp: hp, speed, hit: false, healthBarInfo: hb, hitboxRadius: (type === 'boss' ? 4.5 : 1.5) };
-    enemies.push(en); scene.add(en);
-
-    // Ajoute 'lastShot' pour gérer la cadence de tir de l'archer
+    
     en.userData = { 
-        type, hp, maxHp: hp, speed, hit: false, 
+        type, 
+        hp, 
+        maxHp: hp, 
+        speed, 
+        hit: false, 
         healthBarInfo: hb, 
         hitboxRadius: (type === 'boss' ? 4.5 : 1.5),
         lastShot: 0 
     };
+    
+    enemies.push(en); 
+    scene.add(en);
 }
 
 function damageEnemy(en) {
@@ -314,32 +330,36 @@ function damageEnemy(en) {
     createParticles(en.position.clone().add(new THREE.Vector3(0, en.userData.type==='boss'?4:0, 0)), 0xff0000);
 
     // --- EFFET DE HIT FLASH ---
-    // On parcourt tous les enfants de l'ennemi pour trouver les parties du corps (Mesh)
     en.traverse(child => {
         if (child.isMesh && child.material && child.material.emissive) {
             const originalColor = child.material.emissive.getHex();
             const originalIntensity = child.material.emissiveIntensity;
 
-            // On fait flasher en blanc pur avec une forte intensité
             child.material.emissive.setHex(0xffffff);
             child.material.emissiveIntensity = 2;
 
-            // On remet la couleur d'origine après 80 millisecondes
             setTimeout(() => {
-                if (child.material) { // Vérification si l'ennemi n'a pas été supprimé entre-temps
+                if (child.material) { 
                     child.material.emissive.setHex(originalColor);
                     child.material.emissiveIntensity = originalIntensity;
                 }
             }, 80);
         }
     });
-    // ---------------------------
 
+    // --- LOGIQUE DE MORT ---
     if (en.userData.hp <= 0) {
         score += 100;
         checkHighScore();
-        if (en.userData.type === 'boss') { gainXP(150); spawnBonus(en.position, 'ally'); }
-        else { gainXP(25); }
+        
+        if (en.userData.type === 'boss') { 
+            bossesKilled++; // Augmente la difficulté du prochain boss
+            gainXP(150); 
+            spawnBonus(en.position, 'ally'); 
+        } else { 
+            gainXP(25); 
+        }
+        
         scene.remove(en);
         enemies = enemies.filter(e => e !== en);
     }
