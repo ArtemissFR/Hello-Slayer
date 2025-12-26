@@ -6,9 +6,6 @@ let playerHP = 100, lastTime = 0, yaw = 0, pitch = 0;
 let velocityY = 0;
 let highScore = localStorage.getItem('helloSlayerHighScore') || 0;
 
-// Nouvelles variables globales
-let listener, music, slashSound, hitSound, levelUpSound;
-
 let comboCount = 0;
 let lastClickTime = 0;
 const COMBO_TIMEOUT = 600; // Temps max entre deux clics (en ms)
@@ -628,35 +625,6 @@ function updateParticles(delta) {
     });
 }
 
-function initAudio() {
-    listener = new THREE.AudioListener();
-    camera.add(listener); // L'oreille du joueur est attachée à la caméra
-
-    const audioLoader = new THREE.AudioLoader();
-
-    // Musique d'ambiance (boucle)
-    music = new THREE.Audio(listener);
-    audioLoader.load('assets/sounds/ambient_music.mp3', (buffer) => {
-        music.setBuffer(buffer);
-        music.setLoop(true);
-        music.setVolume(0.4);
-    });
-
-    // Bruitage d'attaque
-    slashSound = new THREE.Audio(listener);
-    audioLoader.load('assets/sounds/slash.mp3', (buffer) => {
-        slashSound.setBuffer(buffer);
-        slashSound.setVolume(0.6);
-    });
-
-    // Bruitage de dégâts ennemis
-    hitSound = new THREE.Audio(listener);
-    audioLoader.load('assets/sounds/hit.mp3', (buffer) => {
-        hitSound.setBuffer(buffer);
-        hitSound.setVolume(0.5);
-    });
-}
-
 function gameOver() {
     gameActive = false;
     
@@ -671,7 +639,6 @@ function gameOver() {
 }
 
 document.getElementById("startBtn").onclick = () => {
-    if (music) music.play();
     const flash = document.getElementById("flashOverlay");
     
     // Force l'initialisation du contexte audio de Three.js
