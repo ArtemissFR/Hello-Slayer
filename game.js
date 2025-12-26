@@ -447,9 +447,27 @@ function updateParticles(delta) {
 function gameOver() { gameActive = false; document.getElementById("gameOver").style.display = "flex"; document.exitPointerLock(); }
 
 document.getElementById("startBtn").onclick = () => {
-    document.getElementById("menu").style.display = "none";
-    document.getElementById("ui").style.display = "block";
-    gameActive = true; init(); spawnWave();
+    const flash = document.getElementById("flashOverlay");
+    
+    // 1. Déclenche le flash instantanément
+    flash.style.transition = "none";
+    flash.style.opacity = "1";
+
+    // 2. Attend un court instant (150ms) avant de charger le jeu
+    setTimeout(() => {
+        // Cache le menu et affiche l'UI
+        document.getElementById("menu").style.display = "none";
+        document.getElementById("ui").style.display = "block";
+        
+        // Initialise le jeu
+        gameActive = true; 
+        init(); 
+        spawnWave();
+
+        // 3. Fait disparaître le flash progressivement une fois en jeu
+        flash.style.transition = "opacity 1.5s ease-out";
+        flash.style.opacity = "0";
+    }, 150);
 };
 
 function initMenuAnimation() {

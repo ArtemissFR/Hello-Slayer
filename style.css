@@ -99,3 +99,16 @@ button:hover {
     position: relative;
     z-index: 2;
 }
+
+#flashOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #ff0000; /* Rouge pur */
+    opacity: 0;
+    pointer-events: none; /* Ne bloque pas les clics */
+    z-index: 9999; /* Toujours au-dessus de tout */
+    transition: opacity 0.1s ease-in;
+}
