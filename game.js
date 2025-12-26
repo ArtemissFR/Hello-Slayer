@@ -451,3 +451,59 @@ document.getElementById("startBtn").onclick = () => {
     document.getElementById("ui").style.display = "block";
     gameActive = true; init(); spawnWave();
 };
+
+function initMenuAnimation() {
+    const canvas = document.getElementById('bloodCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Particle {
+        constructor() {
+            this.reset();
+        }
+        reset() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height - canvas.height;
+            this.speed = 2 + Math.random() * 5;
+            this.size = Math.random() * 3 + 1;
+            this.color = Math.random() > 0.5 ? '#600' : '#f00'; // Sang ou braise
+            this.opacity = Math.random() * 0.5 + 0.2;
+        }
+        update() {
+            this.y += this.speed;
+            this.x += Math.sin(this.y / 20); // Oscillation légère
+            if (this.y > canvas.height) this.reset();
+        }
+        draw() {
+            ctx.globalAlpha = this.opacity;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    for (let i = 0; i < 100; i++) particles.push(new Particle());
+
+    function animate() {
+        if (!gameActive) { // On n'anime que si le menu est actif
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+    }
+    animate();
+}
+
+// Appelle la fonction immédiatement pour que l'animation tourne au chargement
+initMenuAnimation();
