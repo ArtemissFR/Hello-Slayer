@@ -4,6 +4,7 @@ let enemies = [], buildings = [], bonuses = [], particles = [], shields = [];
 let keys = {}, score = 0, wave = 1, gameActive = false, isPaused = false;
 let playerHP = 100, lastTime = 0, yaw = 0, pitch = 0;
 let velocityY = 0;
+let highScore = localStorage.getItem('helloSlayerHighScore') || 0;
 
 // Statistiques Evolutives
 let playerLvl = 1, playerXP = 0, xpToNextLevel = 100;
@@ -209,6 +210,7 @@ function damageEnemy(en) {
     createParticles(en.position.clone().add(new THREE.Vector3(0, en.userData.type==='boss'?4:0, 0)), 0xff0000);
     if (en.userData.hp <= 0) {
         score += 100;
+        checkHighScore();
         if (en.userData.type === 'boss') { gainXP(150); spawnBonus(en.position, 'ally'); }
         else { gainXP(25); }
         scene.remove(en);
@@ -336,11 +338,20 @@ function updateHealthBarUI(entity) {
 
 function updateUI() {
     document.getElementById("score").textContent = score;
+    document.getElementById("highScore").textContent = highScore; // Affiche le record
     document.getElementById("wave").textContent = wave;
     document.getElementById("lvlText").textContent = playerLvl;
     document.getElementById("hpText").textContent = Math.ceil(playerHP);
     document.getElementById("healthBar").style.width = playerHP + "%";
     document.getElementById("xpBar").style.width = (playerXP / xpToNextLevel * 100) + "%";
+}
+
+function checkHighScore() {
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('helloSlayerHighScore', highScore); // Sauvegarde physiquement
+        updateUI();
+    }
 }
 
 function updateCamera() {
@@ -444,7 +455,18 @@ function updateParticles(delta) {
     });
 }
 
-function gameOver() { gameActive = false; document.getElementById("gameOver").style.display = "flex"; document.exitPointerLock(); }
+function gameOver() {
+    gameActive = false;
+    
+    // Vérifie et sauvegarde le record avant d'afficher le menu
+    checkHighScore(); 
+    
+    // Affiche l'écran de fin de partie
+    document.getElementById("gameOver").style.display = "flex";
+    
+    // Libère le curseur de la souris
+    document.exitPointerLock();
+}
 
 document.getElementById("startBtn").onclick = () => {
     const flash = document.getElementById("flashOverlay");
