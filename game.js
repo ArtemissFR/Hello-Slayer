@@ -15,6 +15,9 @@ let currentCombo = 0;
 let comboTimer = null;
 const COMBO_DURATION = 3000; // 3 secondes pour enchaîner
 
+let jumpCount = 0; // Pour compter les sauts
+let isDoingFlip = false; // Pour savoir si on est en train de faire le salto
+
 let scytheActive = false;
 let lastScytheTime = 0;
 const SCYTHE_COOLDOWN = 10000; // 10 secondes de recharge
@@ -456,8 +459,33 @@ function updatePlayer(delta) {
     if (keys['d']) move.add(right);
     if (move.length() > 0) player.position.add(move.normalize().multiplyScalar(baseSpeed));
 
-    velocityY -= 0.02; player.position.y += velocityY;
-    if (player.position.y <= 0) { player.position.y = 0; velocityY = 0; jumpsRemaining = maxJumps; }
+    velocityY -= 0.02; 
+    player.position.y += velocityY;
+
+    // --- LOGIQUE DU SALTO ---
+    if (isDoingFlip) {
+        // Vitesse de base (0.25) + un bonus selon le numéro du saut
+        // Plus jumpCount est élevé, plus ça tourne vite
+        const flipSpeed = 0.20 + (jumpCount * 0.05); 
+        
+        player.rotation.x -= flipSpeed; 
+
+        if (player.rotation.x <= -Math.PI * 2) {
+            player.rotation.x = 0;
+            isDoingFlip = false;
+        }
+    }
+
+    if (player.position.y <= 0) { 
+        player.position.y = 0; 
+        velocityY = 0; 
+        jumpCount = 0; // Réinitialise bien tous les sauts accumulés
+        isDoingFlip = false;
+        player.rotation.x = 0; 
+    }
+    
+    // IMPORTANT : On ne doit pas écraser player.rotation.x ici, 
+    // donc on ne touche qu'à la rotation Y pour la caméra.
     player.rotation.y = yaw;
 }
 
@@ -591,51 +619,75 @@ function updateCamera() {
 
 function setupControls() {
     window.addEventListener('keydown', (e) => {
+        // Enregistre l'appui pour le déplacement (z, q, s, d, etc.)
         keys[e.code] = true;
+        
+        // Support pour les claviers AZERTY et QWERTY (z/w, q/a)
+        if (e.key === 'z' || e.key === 'w') keys['z'] = true;
+        if (e.key === 's') keys['s'] = true;
+        if (e.key === 'q' || e.key === 'a') keys['q'] = true;
+        if (e.key === 'd') keys['d'] = true;
+
+        // --- ATTAQUE SPECIALE (FAUX) ---
         if (e.code === 'KeyE' && gameActive && !isPaused) {
             throwScythe();
         }
+
+        // --- SAUT ET SALTO (DYNAMIQUE) ---
+        if (e.code === 'Space' && gameActive && !isPaused) {
+            if (jumpCount < maxJumps) { // Utilise maxJumps au lieu de 2
+                jumpCount++;
+                velocityY = 0.4; 
+
+                // On déclenche le salto dès le 2ème saut
+                if (jumpCount >= 2) {
+                    isDoingFlip = true;
+                    player.rotation.x = 0; 
+                }
+            }
+        }
     });
-    window.addEventListener('keydown', e => { 
-        if (isPaused) return;
-        keys[e.key.toLowerCase()] = true; 
-        if (e.code === 'Space' && jumpsRemaining > 0) { velocityY = 0.45; jumpsRemaining--; }
+
+    window.addEventListener('keyup', (e) => {
+        // Relâche la touche
+        keys[e.code] = false;
+        if (e.key === 'z' || e.key === 'w') keys['z'] = false;
+        if (e.key === 's') keys['s'] = false;
+        if (e.key === 'q' || e.key === 'a') keys['q'] = false;
+        if (e.key === 'd') keys['d'] = false;
     });
-    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-    window.addEventListener('mousemove', e => { 
+
+    // --- LE RESTE DES CONTRÔLES (SOURIS) RESTE INCHANGÉ ---
+    window.addEventListener('mousemove', (e) => { 
         if (document.pointerLockElement && !isPaused) { 
             yaw -= e.movementX * 0.003; 
             pitch = Math.max(-0.8, Math.min(0.8, pitch + e.movementY * 0.003)); 
         }
     });
-    window.addEventListener('mousedown', e => { 
+
+    window.addEventListener('mousedown', (e) => { 
         if (isPaused) return;
         if (!document.pointerLockElement) {
             renderer.domElement.requestPointerLock(); 
             return;
         }
 
-        // --- LOGIQUE DE COMBO ---
         const now = Date.now();
         if (now - lastClickTime > COMBO_TIMEOUT) {
-            comboCount = 0; // Réinitialise si le joueur est trop lent
+            comboCount = 0; 
         }
         lastClickTime = now;
         comboCount++;
-        // ------------------------
 
         if (!isAttacking && gameActive) { 
             isAttacking = true; 
             attackTime = 0; 
-            
-            // Déclenche la Super Attaque au 3ème clic
             if (comboCount >= 3) {
                 attackType = 'super';
                 comboCount = 0; 
             } else {
                 attackType = e.button === 2 ? 'vertical' : 'horizontal'; 
             }
-            
             enemies.forEach(en => en.userData.hit = false); 
         }
     });
