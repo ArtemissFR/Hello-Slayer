@@ -10,6 +10,9 @@ let highScore = localStorage.getItem('helloSlayerHighScore') || 0;
 let listener, music, slashSound, hitSound, levelUpSound;
 let bossesKilled = 0; // Nouveau compteur
 let playerDamage = 1; // Dégâts de base
+let currentCombo = 0;
+let comboTimer = null;
+const COMBO_DURATION = 3000; // 3 secondes pour enchaîner
 
 let comboCount = 0;
 let lastClickTime = 0;
@@ -357,6 +360,7 @@ function damageEnemy(en) {
 
     // --- LOGIQUE DE MORT ---
     if (en.userData.hp <= 0) {
+        increaseCombo();
         score += 100;
         checkHighScore();
         
@@ -829,6 +833,7 @@ function initMenuAnimation() {
 }
 
 function triggerDamageEffect() {
+    resetCombo();
     const overlay = document.getElementById("damageOverlay");
     overlay.style.opacity = "1";
     
@@ -837,6 +842,38 @@ function triggerDamageEffect() {
         overlay.style.opacity = "0";
         pitch += (Math.random() - 0.5) * 0.1;
     }, 200);
+}
+
+function increaseCombo() {
+    currentCombo++;
+    
+    const container = document.getElementById('comboContainer');
+    const text = document.getElementById('comboText');
+    const rank = document.getElementById('comboRank');
+    
+    container.style.display = 'block';
+    text.innerText = "COMBO X" + currentCombo;
+    
+    // Animation de "secousse" à chaque point gagné
+    text.style.animation = 'none';
+    void text.offsetWidth; 
+    text.style.animation = 'demonicShake 0.2s infinite';
+
+    // Grades selon le nombre de kills
+    if (currentCombo >= 20) { rank.innerText = "GODSLAYER"; rank.style.color = "#0ffff"; }
+    else if (currentCombo >= 15) { rank.innerText = "MEGA KILLER"; rank.style.color = "#f0f"; }
+    else if (currentCombo >= 10) { rank.innerText = "ULTRA BRUTAL"; rank.style.color = "#ff0"; }
+    else if (currentCombo >= 5) { rank.innerText = "DEMONIC"; rank.style.color = "#f80"; }
+    else { rank.innerText = "SLAYER"; rank.style.color = "#f00"; }
+
+    // On réinitialise le compte à rebours de 3 secondes
+    clearTimeout(comboTimer);
+    comboTimer = setTimeout(resetCombo, COMBO_DURATION);
+}
+
+function resetCombo() {
+    currentCombo = 0;
+    document.getElementById('comboContainer').style.display = 'none';
 }
 
 // Appelle la fonction immédiatement pour que l'animation tourne au chargement
