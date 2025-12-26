@@ -6,6 +6,10 @@ let playerHP = 100, lastTime = 0, yaw = 0, pitch = 0;
 let velocityY = 0;
 let highScore = localStorage.getItem('helloSlayerHighScore') || 0;
 
+let comboCount = 0;
+let lastClickTime = 0;
+const COMBO_TIMEOUT = 600; // Temps max entre deux clics (en ms)
+
 // Statistiques Evolutives
 let playerLvl = 1, playerXP = 0, xpToNextLevel = 100;
 let baseSpeed = 0.35;
@@ -14,6 +18,8 @@ let jumpsRemaining = 2;
 
 let isAttacking = false, attackTime = 0, attackType = 'none';
 let longSwordActive = false, swordTimer = 0, shieldActive = false;
+
+
 
 // Système Allié
 let companion = null, companionProjectiles = [], lastCompanionShot = 0;
@@ -149,10 +155,40 @@ function updateCombat(delta) {
     attackTime += delta * 7;
     let progress = Math.min(attackTime, 1);
 
-    if (attackType === 'horizontal') {
-        swordGroup.rotation.y = 1.8 - (progress * 4);
+    if (attackType === 'super') {
+        // TOURBILLON : L'épée fait un tour complet (360°)
+        swordGroup.rotation.y = progress * Math.PI * 2;
+        swordMesh.material.emissive.setHex(0x00ffff); // Devient bleue
+        
+        // Dégâts sur 360 degrés
+        const playerReach = longSwordActive ? 12 : 8;
+        enemies.forEach(en => {
+            const dist = player.position.distanceTo(en.position);
+            // On touche tout le monde dans le rayon, sans vérifier l'angle
+            if (dist < (playerReach + en.userData.hitboxRadius) && !en.userData.hit) {
+                damageEnemy(en); 
+                en.userData.hit = true;
+            }
+        });
     } else {
-        swordGroup.rotation.x = -1.5 + (progress * 3);
+        // ATTAQUES NORMALES
+        swordMesh.material.emissive.setHex(0xff0000); // Reste rouge
+        if (attackType === 'horizontal') {
+            swordGroup.rotation.y = 1.8 - (progress * 4);
+        } else {
+            swordGroup.rotation.x = -1.5 + (progress * 3);
+        }
+
+        // Collision directionnelle classique
+        if (progress > 0.3 && progress < 0.8) {
+            const playerReach = longSwordActive ? 10 : 6;
+            enemies.forEach(en => {
+                const dist = player.position.distanceTo(en.position);
+                if (dist < (playerReach + en.userData.hitboxRadius) && !en.userData.hit) {
+                    damageEnemy(en); en.userData.hit = true;
+                }
+            });
+        }
     }
 
     // Garder l'échelle pendant l'attaque
@@ -375,10 +411,32 @@ function setupControls() {
     });
     window.addEventListener('mousedown', e => { 
         if (isPaused) return;
-        if (!document.pointerLockElement) renderer.domElement.requestPointerLock(); 
-        else if (!isAttacking && gameActive) { 
-            isAttacking = true; attackTime = 0; 
-            attackType = e.button === 2 ? 'vertical' : 'horizontal'; 
+        if (!document.pointerLockElement) {
+            renderer.domElement.requestPointerLock(); 
+            return;
+        }
+
+        // --- LOGIQUE DE COMBO ---
+        const now = Date.now();
+        if (now - lastClickTime > COMBO_TIMEOUT) {
+            comboCount = 0; // Réinitialise si le joueur est trop lent
+        }
+        lastClickTime = now;
+        comboCount++;
+        // ------------------------
+
+        if (!isAttacking && gameActive) { 
+            isAttacking = true; 
+            attackTime = 0; 
+            
+            // Déclenche la Super Attaque au 3ème clic
+            if (comboCount >= 3) {
+                attackType = 'super';
+                comboCount = 0; 
+            } else {
+                attackType = e.button === 2 ? 'vertical' : 'horizontal'; 
+            }
+            
             enemies.forEach(en => en.userData.hit = false); 
         }
     });
